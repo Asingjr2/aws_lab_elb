@@ -1,0 +1,162 @@
+---
+AWSTemplateFormatVersion: 2010-09-09
+
+Description:
+  Creates elastic load balancers for services.
+
+
+Parameters:
+  ProjectName:
+    Default: demo_asg_lc
+    Type: String
+    Description: Name of project. 
+    
+  ProjectKeyPair:
+    Type: AWS::EC2::KeyPair::KeyName
+  
+  LatestAmiId:
+    Type: AWS::SSM::Parameter::Value<AWS::EC2::Image::Id>
+    Description: Desired amiID for latest amazon image.
+    Default: "/aws/service/ami-amazon-linux-latest/amzn2-ami-hvm-x86_64-gp2"
+  
+  
+Resources:
+  DemoInstanceRole:
+    Type: AWS::IAM::Role
+    Properties: 
+      AssumeRolePolicyDocument:
+        Version: "2012-10-17"
+        Statement:
+          - Effect: "Allow"
+            Action: "sts:AssumeRole"
+            Principal:
+              Service: 
+                - "ec2.amazonaws.com"
+
+  DemoInstanceProfile:
+    Type: AWS::IAM::InstanceProfile
+    Properties: 
+      Roles: 
+        - !Ref DemoInstanceRole
+
+  DemoInstancePolicy:
+    Type: AWS::IAM::Policy
+    Properties:
+      PolicyName: !Sub ${ProjectName}-DemoInstancePolicy
+      PolicyDocument:
+        Statement:
+          - Effect: "Allow"
+            Action:
+              - "ec2:*"
+              - "s3:*"
+            Resource: "*"
+      Roles:
+        - !Ref DemoInstanceRole
+
+  DemoSG:
+    Type: AWS::EC2::SecurityGroup
+    Properties: 
+      GroupDescription: Demo SG 
+      GroupName: !Sub "Demo SG ${AWS::StackName}"
+      VpcId: !ImportValue DemoVPCOutput
+      SecurityGroupIngress: 
+        - CidrIp: 0.0.0.0/0
+          Description: SSH
+          FromPort: 22
+          IpProtocol: tcp
+          ToPort: 22
+        - CidrIp: 0.0.0.0/0
+          Description: SSH
+          FromPort: 80
+          IpProtocol: tcp
+          ToPort: 80
+      Tags:
+        - Key: Name
+          Value: !Ref ProjectName
+
+  DemoLaunchConfig:
+    Type: AWS::AutoScaling::LaunchConfiguration
+    Properties:
+      ImageId: !Ref LatestAmiId
+      InstanceMonitoring: True
+      InstanceType: t2.micro
+      KeyName: !Ref ProjectKeyPair
+      IamInstanceProfile: !Ref DemoInstanceProfile
+      AssociatePublicIpAddress: True
+      LaunchConfigurationName: !Join [ "-", [ !Ref ProjectName, DemoLaunchConfig ]]
+      SecurityGroups:
+        - !Ref DemoSG
+      UserData:
+        Fn::Base64: !Sub |
+          #!/bin/bash
+
+          echo "
+          #!/bin/bash -x
+
+          varInstanceID=$(curl http://169.254.169.254/latest/meta-data/instance-id)
+          yum update -y
+          cd /etc/httpd/conf
+          sed -i "s/Listen 80/Listen 80/g" httpd.conf
+          cd /var/www/html
+          echo "<html><h1>Hello From Instance ID: $varInstanceID</h1></html>" > index.html
+          service httpd start
+          chkconfig httpd on
+          " > start.sh
+
+          chmod +x start.sh
+          ./start.sh
+
+  DemoServiceASG:
+    Type: AWS::AutoScaling::AutoScalingGroup
+    Properties:
+      AutoScalingGroupName: !Join [ "-", [ !Ref ProjectName, DemoServiceASG ]]
+      VPCZoneIdentifier: 
+        - !ImportValue DemoPublicSubnetOutput
+      Cooldown: 600
+      HealthCheckType: ELB
+      HealthCheckGracePeriod: 1000
+      LaunchConfigurationName: !Ref DemoLaunchConfig
+      DesiredCapacity: 3
+      MaxSize: 4
+      MinSize: 3
+
+  DemoELBSG:
+    Type: AWS::EC2::SecurityGroup
+    Properties: 
+      GroupDescription: Demo ELB SG
+      GroupName: ELB for Demo SG
+      SecurityGroupIngress: 
+        - CidrIp: 0.0.0.0/0
+          Description: SSL port
+          FromPort: 80
+          IpProtocol: tcp
+          ToPort: 80
+      Tags:
+        - Key: Name
+          Value: !Ref ProjectName
+      VpcId: !ImportValue DemoVPCOutput
+
+  DemoServiceELB:
+    Type: AWS::ElasticLoadBalancing::LoadBalancer
+    Properties:
+      HealthCheck:
+        HealthyThreshold: 2
+        Interval: 6
+        Target: TCP:80 
+        Timeout: 5
+        UnhealthyThreshold: 2
+      Listeners:
+        - InstancePort: 80
+          InstanceProtocol: TCP
+          LoadBalancerPort: 80
+          Protocol: TCP
+      LoadBalancerName: DemoServiceELB
+      Scheme: internet-facing
+      SecurityGroups: 
+        - !GetAtt DemoELBSG.GroupId
+      Subnets: 
+        - !ImportValue DemoPublicSubnetOutput
+      Tags:
+        - Key: Name
+          Value: !Join [ "-", [ !Ref ProjectName, DemoServiceELB ]]
+      

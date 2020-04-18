@@ -1,0 +1,85 @@
+---
+AWSTemplateFormatVersion: 2010-09-09
+
+Description: 
+  Creates sample VPC with public subnet and bucket for project.
+
+
+Parameters:
+  ProjectName:
+    Default: demo_asg_lc
+    Description: Name of project.  Must be lowercase.
+    Type: String
+    
+
+Resources:
+  DemoVPC:
+    Type: AWS::EC2::VPC
+    Properties: 
+      CidrBlock: 10.0.0.0/16
+      Tags: 
+        - Key: Name
+          Value: !Join ['-', [!Ref ProjectName, DemoVPC ]]
+
+  DemoInternetGateway:
+    Type: AWS::EC2::InternetGateway
+    DependsOn: DemoVPC
+    Properties:
+      Tags: 
+        - Key: Name
+          Value: !Join ['-', [!Ref ProjectName, DemoInternetGateway ]]
+
+  DemoInternetGatewayConnection:
+    Type: AWS::EC2::VPCGatewayAttachment
+    Properties:
+      InternetGatewayId: !Ref DemoInternetGateway
+      VpcId: !Ref DemoVPC
+  
+  DemoRouteTablePublic:
+    Type: AWS::EC2::RouteTable
+    DependsOn: 
+      - DemoVPC
+    Properties:
+      VpcId: !Ref DemoVPC
+      Tags: 
+        - Key: Name
+          Value: !Join ['-', [!Ref ProjectName, DemoRouteTablePublic ]]
+  
+  DemoIGWRoute:
+    Type: AWS::EC2::Route
+    DependsOn: DemoInternetGatewayConnection
+    Properties:
+      GatewayId: !Ref DemoInternetGateway
+      RouteTableId: !Ref DemoRouteTablePublic
+      DestinationCidrBlock: "0.0.0.0/0"
+
+  DemoPublicSubnet:
+    Type: AWS::EC2::Subnet
+    Properties: 
+      VpcId: !Ref DemoVPC
+      AvailabilityZone: us-east-1a
+      CidrBlock: 10.0.1.0/24
+      MapPublicIpOnLaunch: true
+      Tags:
+        - Key: Name
+          Value: !Join [ '-', [ !Ref ProjectName, DemoPublicSubnet ]]
+
+  RouteTableAssoc:
+    Type: AWS::EC2::SubnetRouteTableAssociation
+    DependsOn: DemoPublicSubnet
+    Properties:
+      RouteTableId: !Ref DemoRouteTablePublic
+      SubnetId: !Ref DemoPublicSubnet
+
+Outputs:
+  DemoVPCOP:
+    Description: VPC output
+    Value: !Ref DemoVPC
+    Export:
+      Name: DemoVPCOutput
+
+  DemoPublicSubnetOP:
+    Description: Subnet output
+    Value: !Ref DemoPublicSubnet
+    Export:
+      Name: DemoPublicSubnetOutput
