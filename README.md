@@ -24,5 +24,5 @@
 ### Test
 - To test successful deployment of aws cloud resources head to EC2 section of console
 - Copy `Public DNS` or `IPv4 Public` into console and out basic message...you can refresh page to should automatic distribution of traffic to different servers by comparing instance id
-![EC2_Console](/ec2_console.jpg)
+![EC2_Console](images/ec2_console.jpg)
 
