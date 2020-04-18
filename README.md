@@ -1,17 +1,28 @@
 # AWS-LAB-ELB
 
 ### Purpose
-- Used to demonstrate sample cloudformation templates for multiple instances sitting behind asg and elb
+- Used to quickly deploy multiple instances sitting behind asg and elb
 
 ### Requirements
-- aws account
-- aws console access
+- AWS account
+- AWS console access
 
 ### Implementation (Stages) & Removal
-- Enter aws console for cloudformation and enter `network_stack.yaml` and parameters
-- Once above is complete, enter `asg_lc.yaml` and required parameteres
+- Navigate in AWS console to cloudformation and create stack `network_stack.yaml` entering required parameters
+- Once above is complete, create stack `asg_lc.yaml` enter required parameteres
 
 ### Test
 - To test successful deployment of aws cloud resources head to EC2 section of console
 - Copy `Public DNS` or `IPv4 Public` into console and out basic message...you can refresh page to should automatic distribution of traffic to different servers by comparing instance id
 ![EC2_Console](/ec2_console.jpg)
+
+
+### AWS Cloud Resources
+- VPC
+- Subnet
+- Route Table
+- Route
+- Security Group
+- Autoscaling group
+- Elastic Load Balancer
+- IAM (multiple)
