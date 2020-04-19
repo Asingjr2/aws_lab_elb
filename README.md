@@ -9,7 +9,7 @@
 
 ### Implementation (Stages) & Removal
 - Navigate in AWS console to cloudformation and create stack `network_stack.yaml` entering required parameters
-- Once above is complete, create stack `asg_lc.yaml` enter required parameteres
+- Once above is complete, create stack `asg_lc.yaml` enter required parameters
 
 ### AWS Cloud Resources
 - VPC
